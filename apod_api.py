@@ -4,12 +4,6 @@ Library for interacting with NASA's Astronomy Picture of the Day API.
 import requests 
 import sys 
 
-def main():
-    # TODO: Add code to test the functions in this module
-    apod_dict = get_apod_info('2023-03-07')
-    img_url = get_apod_image_url(apod_dict)
-    return
-
 def get_apod_info(apod_date):
     """Gets information from the NASA API for the Astronomy 
     Picture of the Day (APOD) from a specified date.
@@ -23,7 +17,8 @@ def get_apod_info(apod_date):
         apod_dict = dict(resp_msg.json())
         return apod_dict
     else:
-        return None
+        print("Request To The APOD API Has Failed\n! EXITING !")
+        sys.exit()
 
 def get_apod_image_url(apod_info_dict):
     """
@@ -38,6 +33,3 @@ def get_apod_image_url(apod_info_dict):
     else:
         thmbnail_download_url = apod_info_dict['thumb']
         return thmbnail_download_url
-
-if __name__ == '__main__':
-    main()
