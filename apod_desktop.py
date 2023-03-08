@@ -43,19 +43,38 @@ def main():
         image_lib.set_desktop_background_image(apod_info['file_path'])
 
 def get_apod_date():
-    """Gets the APOD date
-     
-    The APOD date is taken from the first command line parameter.
-    Validates that the command line parameter specifies a valid APOD date.
-    Prints an error message and exits script if the date is invalid.
-    Uses today's date if no date is provided on the command line.
+    # Variables for the current date and the date of the first APOD
+    current_date = date.today()
+    first_apod = date(1995, 6, 16)
+    
+    # {REQ-1} 
+    if len(sys.argv) == 1: # {REQ-4}
+        # Return current if no date is given
+        apod_date = current_date
 
-    Returns:
-        date: APOD date
-    """
-    # TODO: Complete function body
+    elif len(sys.argv) == 2: # {REQ-2}
+        # Checks if the given parameter is in ISO format
+        try: # {REQ-3} 
+            apod_date = date.fromisoformat(str(sys.argv[1]))
+        except ValueError:
+            print("Date Isn't In ISO Format - YYYY-MM-DD\n! CODE EXITING !")
+            sys.exit()
 
-    apod_date = date.fromisoformat('2022-12-25')
+        # Checks if the date is not in the future 
+        if apod_date > current_date:
+            print(f"The Date {apod_date} is in the Future; Use a Valid Date\n! CODE EXITING !")
+            sys.exit()
+
+        # Checks if the date is not earlier than the first APOD
+        if apod_date < first_apod:
+            print(f"{apod_date} is before the first APOD; There is no APOD to be found\n! CODE EXITING !")
+            sys.exit()
+               
+    else:
+        print("Too many Arguments Given\n! CODE EXITING !")
+        sys.exit()
+
+    # If all the tests passed return the date 
     return apod_date
 
 def get_script_dir():
