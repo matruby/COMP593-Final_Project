@@ -16,6 +16,7 @@ import image_lib
 import inspect
 import os
 import sys
+import sqlite3
 
 # Global variables
 image_cache_dir = None  # Full path of image cache directory
@@ -24,7 +25,7 @@ image_cache_db = None   # Full path of image cache database
 def main():
     ## DO NOT CHANGE THIS FUNCTION ##
     # Get the APOD date from the command line
-    apod_date = get_apod_date()    
+    #apod_date = get_apod_date()    
 
     # Get the path of the directory in which this script resides
     script_dir = get_script_dir()
@@ -33,14 +34,14 @@ def main():
     init_apod_cache(script_dir)
 
     # Add the APOD for the specified date to the cache
-    apod_id = add_apod_to_cache(apod_date)
+    #apod_id = add_apod_to_cache(apod_date)
 
     # Get the information for the APOD from the DB
-    apod_info = get_apod_info(apod_id)
+    #apod_info = get_apod_info(apod_id)
 
     # Set the APOD as the desktop background image
-    if apod_id != 0:
-        image_lib.set_desktop_background_image(apod_info['file_path'])
+    #if apod_id != 0:
+    #    image_lib.set_desktop_background_image(apod_info['file_path'])
 
 def get_apod_date():
     # Variables for the current date and the date of the first APOD
@@ -101,10 +102,24 @@ def init_apod_cache(parent_dir):
     """
     global image_cache_dir
     global image_cache_db
-    # TODO: Determine the path of the image cache directory
-    # TODO: Create the image cache directory if it does not already exist
-    # TODO: Determine the path of image cache DB
-    # TODO: Create the DB if it does not already exist
+
+    # Check if the image directory exists if not create it
+    image_cache_dir = parent_dir + r'\images'
+    print(image_cache_dir)
+    if os.path.isdir(image_cache_dir):
+        print('Image cache directory already exists.')
+    else:
+        print('Image cache directory created.')
+        os.mkdir(image_cache_dir)
+
+    # Check if the image cache DB exists if not create it
+    image_cache_db = image_cache_dir + r'\image_cache.db'
+    if os.path.isfile(image_cache_db):
+        print('Image cache DB already exists.')
+    else:
+        print('Image cache DB created.')
+        image_db = sqlite3.connect(image_cache_db)
+        image_db.close()
 
 def add_apod_to_cache(apod_date):
     """Adds the APOD image from a specified date to the image cache.
