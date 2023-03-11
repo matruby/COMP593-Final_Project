@@ -14,8 +14,7 @@ def download_image(image_url):
 
     # Check if the download succeeded 
     if img_download.status_code == requests.codes.ok:
-        img_binary = img_download.content 
-        return img_binary 
+        return img_download
     else:
         return None
 

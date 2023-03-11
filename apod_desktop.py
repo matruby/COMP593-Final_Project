@@ -11,10 +11,13 @@ Usage:
 Parameters:
   apod_date = APOD date (format: YYYY-MM-DD)
 """
+from apod_api import get_apod_info, get_apod_image_url
 from datetime import date
-import image_lib
+from image_lib import download_image, save_image_file, set_desktop_background_image
+import hashlib
 import inspect
 import os
+import re 
 import sys
 import sqlite3
 
@@ -32,6 +35,13 @@ def main():
 
     # Initialize the image cache
     init_apod_cache(script_dir)
+
+    #test_db = sqlite3.connect(script_dir + r'\images\image_cache.db')
+    #db_cursor = test_db.cursor()
+
+    #db_cursor.execute("SELECT * FROM apods WHERE hash='lkajslkdf'")
+    #print(db_cursor.fetchone())
+    #test_db.close()
 
     # Add the APOD for the specified date to the cache
     #apod_id = add_apod_to_cache(apod_date)
@@ -118,7 +128,18 @@ def init_apod_cache(parent_dir):
         print('Image cache DB already exists.')
     else:
         print('Image cache DB created.')
+        # Create the database 
         image_db = sqlite3.connect(image_cache_db)
+        # Create the proper SQL table structure 
+        db_cursor = image_db.cursor()
+        db_cursor.execute("""CREATE TABLE apods (
+                            apod_title text,
+                            apod_explanation text,
+                            apod_date text,
+                            full_path text,
+                            hash text
+                            )""")
+        image_db.commit()
         image_db.close()
 
 def add_apod_to_cache(apod_date):
@@ -136,14 +157,50 @@ def add_apod_to_cache(apod_date):
         cache successfully or if the APOD already exists in the cache. Zero, if unsuccessful.
     """
     print("APOD date:", apod_date.isoformat())
-    # TODO: Download the APOD information from the NASA API
-    # TODO: Download the APOD image
-    # TODO: Check whether the APOD already exists in the image cache
-    # TODO: Save the APOD file to the image cache directory
-    # TODO: Add the APOD information to the DB
+    # Get the APOD Image Information 
+    apod_info = get_apod_info(apod_date)
+    apod_img_url = get_apod_image_url(apod_info)
+
+    # Get the image downloaded 
+    img_link = f'https://api.nasa.gov/planetary/apod?api_key=71TWdM7Y6l0U0QhSRBjuWQhfVWdUHKebAAuze8Vp&date={apod_date}&thumbs=True'
+    img_data = download_image(img_link)
+
+    # Get the hash of the downloaded image 
+    img_hash = hashlib.sha256(img_data).hexdigest()
+
+    # Query the database to see if the image already exists
+    img_db = sqlite3.connect(image_cache_db)
+    db_cursor = img_db.cursor()
+    db_cursor.execute(f"SELECT * FROM apods WHERE hash={img_hash}")
+    query_result = db_cursor.fetchone()
+    db_cursor.close()
+
+    # Check if the query returned anything
+    if query_result == None:
+        img_title = apod_info['title']
+        img_extension = apod_img_url[-4:]
+        # Remove unwanted characters from title 
+        img_title = re.sub("[?!.,;:\/@#$%^&*()']", "", img_title)
+        # Properly format the title of the image 
+        split_title = img_title.split(" ")
+        formatted_title = "_".join(split_title)
+        
+        # Image name for image cache 
+        img_cache_name = formatted_title + img_extension
+        img_abs_path = image_cache_dir + f'\\{img_cache_name}'
+
+        # Save the image to the image cache
+        save_image_file(img_data.content, img_abs_path)
+
+        # Add the Apod information to the image_cache.db
+        add_apod_to_db(formatted_title, apod_info['explanation'], img_abs_path, img_hash, apod_date)
+
+    else:
+        print('APOD Image already in cache.')
+
     return 0
 
-def add_apod_to_db(title, explanation, file_path, sha256):
+def add_apod_to_db(title, explanation, file_path, sha256, date):
     """Adds specified APOD information to the image cache DB.
      
     Args:
@@ -155,8 +212,21 @@ def add_apod_to_db(title, explanation, file_path, sha256):
     Returns:
         int: The ID of the newly inserted APOD record, if successful.  Zero, if unsuccessful       
     """
-    # TODO: Complete function body
-    return 0
+    # Connect with the database and initialize the cursor 
+    try:
+        img_db = sqlite3.connect(image_cache_db)
+        db_cursor = img_db.cursor()
+
+        # Add the information for the APOD to the database 
+        db_cursor.execute("INSERT INTO apods VALUE (?, ?, ?, ?, ?)".format(title, explanation, file_path, sha256, date))
+        
+        # Commit the changes and close 
+        img_db.commit()
+        img_db.close()
+    except Exception:
+        return 0
+    else:
+        return 1
 
 def get_apod_id_from_db(image_sha256):
     """Gets the record ID of the APOD in the cache having a specified SHA-256 hash value
