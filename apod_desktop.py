@@ -28,7 +28,7 @@ image_cache_db = None   # Full path of image cache database
 def main():
     ## DO NOT CHANGE THIS FUNCTION ##
     # Get the APOD date from the command line
-    #apod_date = get_apod_date()    
+    apod_date = get_apod_date()    
 
     # Get the path of the directory in which this script resides
     script_dir = get_script_dir()
@@ -36,22 +36,15 @@ def main():
     # Initialize the image cache
     init_apod_cache(script_dir)
 
-    #test_db = sqlite3.connect(script_dir + r'\images\image_cache.db')
-    #db_cursor = test_db.cursor()
-
-    #db_cursor.execute("SELECT * FROM apods WHERE hash='lkajslkdf'")
-    #print(db_cursor.fetchone())
-    #test_db.close()
-
     # Add the APOD for the specified date to the cache
-    #apod_id = add_apod_to_cache(apod_date)
+    apod_id = add_apod_to_cache(apod_date)
 
     # Get the information for the APOD from the DB
-    #apod_info = get_apod_info(apod_id)
+    apod_info = get_apod_info(apod_id)
 
     # Set the APOD as the desktop background image
-    #if apod_id != 0:
-    #    image_lib.set_desktop_background_image(apod_info['file_path'])
+    if apod_id != 0:
+        set_desktop_background_image(apod_info['file_path'])
 
 def get_apod_date():
     # Variables for the current date and the date of the first APOD
@@ -177,27 +170,16 @@ def add_apod_to_cache(apod_date):
 
     # Check if the query returned anything
     if query_result == None:
-        img_title = apod_info['title']
-        img_extension = apod_img_url[-4:]
-        # Remove unwanted characters from title 
-        img_title = re.sub("[?!.,;:\/@#$%^&*()']", "", img_title)
-        # Properly format the title of the image 
-        split_title = img_title.split(" ")
-        formatted_title = "_".join(split_title)
-        
-        # Image name for image cache 
-        img_cache_name = formatted_title + img_extension
-        img_abs_path = image_cache_dir + f'\\{img_cache_name}'
+        apod_file_path = determine_apod_file_path(apod_info, apod_img_url)
 
         # Save the image to the image cache
-        save_image_file(img_data.content, img_abs_path)
+        save_image_file(img_data.content, apod_file_path)
 
         # Add the Apod information to the image_cache.db
-        add_apod_to_db(formatted_title, apod_info['explanation'], img_abs_path, img_hash, apod_date)
+        add_apod_to_db(apod_info['title'], apod_info['explanation'], apod_file_path, img_hash, apod_date)
 
     else:
         print('APOD Image already in cache.')
-
     return 0
 
 def add_apod_to_db(title, explanation, file_path, sha256, date):
@@ -268,7 +250,17 @@ def determine_apod_file_path(image_title, image_url):
         str: Full path at which the APOD image file must be saved in the image cache directory
     """
     # TODO: Complete function body
-    return
+    # Remove unwanted characters from title 
+    apod_title = re.sub("[?!.,;:\/@#$%^&*()']", "", image_title)
+    # Properly format the title of the image 
+    split_title = apod_title.split(" ")
+    formatted_title = "_".join(split_title)
+        
+    # Image name for image cache 
+    img_cache_name = formatted_title + image_url[-4:]
+    img_abs_path = image_cache_dir + f'\\{img_cache_name}'
+
+    return img_abs_path
 
 def get_apod_info(image_id):
     """Gets the title, explanation, and full path of the APOD having a specified
