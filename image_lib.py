@@ -14,20 +14,15 @@ def download_image(image_url):
 
     # Check if the download succeeded 
     if img_download.status_code == requests.codes.ok:
-        return img_download
+        return img_download.content 
     else:
         return None
 
 def save_image_file(image_data, image_path):
     """Saves image data as a file on disk."""
     # Try to write the image to the image path given
-    try: 
-        with open(image_path, 'wb') as img_file:
-            img_file.write(image_data)
-    except Exception:
-        return False    
-    else:
-        return True 
+    with open(image_path, 'wb') as img_file:
+        img_file.write(image_data)
 
 def set_desktop_background_image(image_path):
     """Sets the desktop background image to a specific image."""

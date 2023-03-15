@@ -11,7 +11,7 @@ Usage:
 Parameters:
   apod_date = APOD date (format: YYYY-MM-DD)
 """
-from apod_api import get_apod_info, get_apod_image_url
+from apod_api import get_api_info, get_apod_image_url
 from datetime import date
 from image_lib import download_image, save_image_file, set_desktop_background_image
 import hashlib
@@ -40,25 +40,24 @@ def main():
     apod_id = add_apod_to_cache(apod_date)
 
     # Get the information for the APOD from the DB
-    apod_info = get_apod_info(apod_id)
+    db_response = get_apod_info(apod_id)
 
     # Set the APOD as the desktop background image
     if apod_id != 0:
-        set_desktop_background_image(apod_info['file_path'])
+        set_desktop_background_image(db_response['file_path'])
 
 def get_apod_date():
     # Variables for the current date and the date of the first APOD
     current_date = date.today()
     first_apod = date(1995, 6, 16)
     
-    # {REQ-1} 
-    if len(sys.argv) == 1: # {REQ-4}
+    if len(sys.argv) == 1: 
         # Return current if no date is given
         apod_date = current_date
 
-    elif len(sys.argv) == 2: # {REQ-2}
+    elif len(sys.argv) == 2:
         # Checks if the given parameter is in ISO format
-        try: # {REQ-3} 
+        try: 
             apod_date = date.fromisoformat(str(sys.argv[1]))
         except ValueError:
             print("Date Isn't In ISO Format - YYYY-MM-DD\n! CODE EXITING !")
@@ -125,15 +124,22 @@ def init_apod_cache(parent_dir):
         image_db = sqlite3.connect(image_cache_db)
         # Create the proper SQL table structure 
         db_cursor = image_db.cursor()
-        db_cursor.execute("""CREATE TABLE apods (
-                            apod_title text,
-                            apod_explanation text,
-                            apod_date text,
-                            full_path text,
-                            hash text
-                            )""")
+        create_apod_table_query = """CREATE TABLE IF NOT EXISTS apods 
+        (
+            id                  INTEGER PRIMARY KEY,
+            apod_title          TEXT NOT NULL,
+            apod_explanation    TEXT NOT NULL,
+            apod_date           DATE NOT NULL,
+            full_path           TEXT NOT NULL,
+            hash                TEXT NOT NULL
+        );
+        """
+        db_cursor.execute(create_apod_table_query)
+        # Commit changes and close 
         image_db.commit()
         image_db.close()
+
+        # cur.lastrowid will return the recently added ID
 
 def add_apod_to_cache(apod_date):
     """Adds the APOD image from a specified date to the image cache.
@@ -151,36 +157,32 @@ def add_apod_to_cache(apod_date):
     """
     print("APOD date:", apod_date.isoformat())
     # Get the APOD Image Information 
-    apod_info = get_apod_info(apod_date)
+    apod_info = get_api_info(apod_date)
     apod_img_url = get_apod_image_url(apod_info)
 
     # Get the image downloaded 
-    img_link = f'https://api.nasa.gov/planetary/apod?api_key=71TWdM7Y6l0U0QhSRBjuWQhfVWdUHKebAAuze8Vp&date={apod_date}&thumbs=True'
-    img_data = download_image(img_link)
+    img_data = download_image(apod_img_url)
 
     # Get the hash of the downloaded image 
     img_hash = hashlib.sha256(img_data).hexdigest()
 
     # Query the database to see if the image already exists
-    img_db = sqlite3.connect(image_cache_db)
-    db_cursor = img_db.cursor()
-    db_cursor.execute(f"SELECT * FROM apods WHERE hash={img_hash}")
-    query_result = db_cursor.fetchone()
-    db_cursor.close()
+    query_result = get_apod_id_from_db(img_hash)
 
     # Check if the query returned anything
-    if query_result == None:
-        apod_file_path = determine_apod_file_path(apod_info, apod_img_url)
+    if query_result == 0:
+        # Assign the image file path 
+        apod_file_path = determine_apod_file_path(apod_info['title'], apod_img_url)
 
         # Save the image to the image cache
-        save_image_file(img_data.content, apod_file_path)
+        save_image_file(img_data, apod_file_path)
 
         # Add the Apod information to the image_cache.db
-        add_apod_to_db(apod_info['title'], apod_info['explanation'], apod_file_path, img_hash, apod_date)
-
+        row_id = add_apod_to_db(apod_info['title'], apod_info['explanation'], apod_file_path, img_hash, apod_date)
+        return row_id
     else:
         print('APOD Image already in cache.')
-    return 0
+        return query_result
 
 def add_apod_to_db(title, explanation, file_path, sha256, date):
     """Adds specified APOD information to the image cache DB.
@@ -194,21 +196,34 @@ def add_apod_to_db(title, explanation, file_path, sha256, date):
     Returns:
         int: The ID of the newly inserted APOD record, if successful.  Zero, if unsuccessful       
     """
-    # Connect with the database and initialize the cursor 
-    try:
-        img_db = sqlite3.connect(image_cache_db)
-        db_cursor = img_db.cursor()
 
-        # Add the information for the APOD to the database 
-        db_cursor.execute("INSERT INTO apods VALUE (?, ?, ?, ?, ?)".format(title, explanation, file_path, sha256, date))
-        
-        # Commit the changes and close 
-        img_db.commit()
-        img_db.close()
-    except Exception:
-        return 0
+        # Connect with the database and initialize the cursor 
+    img_db = sqlite3.connect(image_cache_db)
+    db_cursor = img_db.cursor()
+    # Add the information for the APOD to the database 
+    image_query = ("""
+                    INSERT INTO apods 
+                    (
+                        apod_title, 
+                        apod_explanation,
+                        apod_date,
+                        full_path,
+                        hash
+                    ) 
+                    VALUES (?, ?, ?, ?, ?);
+                    """)
+    
+    # Get the Row ID from the most recent execute 
+    row_id = db_cursor.execute(image_query, (title, explanation, date, file_path, sha256))
+
+    # Commit to the database and close 
+    img_db.commit()
+    img_db.close()
+    
+    if row_id.lastrowid:
+        return row_id.lastrowid
     else:
-        return 1
+        return 0
 
 def get_apod_id_from_db(image_sha256):
     """Gets the record ID of the APOD in the cache having a specified SHA-256 hash value
@@ -222,7 +237,20 @@ def get_apod_id_from_db(image_sha256):
         int: Record ID of the APOD in the image cache DB, if it exists. Zero, if it does not.
     """
     # TODO: Complete function body
-    return 0
+    # Connect to the database and initialize the cursor 
+    img_db = sqlite3.connect(image_cache_db)
+    db_cursor = img_db.cursor()
+
+    # Query the database for the image hash 
+    db_cursor.execute(f"SELECT id FROM apods WHERE hash='{image_sha256}'")
+    query_result = db_cursor.fetchone()
+    img_db.close()
+
+    # If no image exists return 0 otherwise return the id of the image row 
+    if query_result == None:
+        return 0 
+    else:
+        return query_result
 
 def determine_apod_file_path(image_title, image_url):
     """Determines the path at which a newly downloaded APOD image must be 
@@ -249,7 +277,6 @@ def determine_apod_file_path(image_title, image_url):
     Returns:
         str: Full path at which the APOD image file must be saved in the image cache directory
     """
-    # TODO: Complete function body
     # Remove unwanted characters from title 
     apod_title = re.sub("[?!.,;:\/@#$%^&*()']", "", image_title)
     # Properly format the title of the image 
@@ -260,6 +287,7 @@ def determine_apod_file_path(image_title, image_url):
     img_cache_name = formatted_title + image_url[-4:]
     img_abs_path = image_cache_dir + f'\\{img_cache_name}'
 
+    # Return the proper absolute path for the new image 
     return img_abs_path
 
 def get_apod_info(image_id):
@@ -272,12 +300,23 @@ def get_apod_info(image_id):
     Returns:
         dict: Dictionary of APOD information
     """
-    # TODO: Query DB for image info
-    # TODO: Put information into a dictionary
+    # Connect to the database and initialize the cursor 
+    img_db = sqlite3.connect(image_cache_db)
+    db_cursor = img_db.cursor()
+
+    # Query the database for the image_id 
+    db_cursor.execute(f"SELECT apod_title, apod_explanation, apod_date, full_path FROM apods WHERE id='{image_id}'")
+    query_result = db_cursor.fetchone()
+
+    # Close the connection 
+    img_db.close()
+
+    # Put the required information into a dictionary
     apod_info = {
-        #'title': , 
-        #'explanation': ,
-        'file_path': 'TBD',
+        'title': query_result[0],
+        'explanation': query_result[1],
+        'date': query_result[2],
+        'file_path': query_result[3]
     }
     return apod_info
 
@@ -287,9 +326,17 @@ def get_all_apod_titles():
     Returns:
         list: Titles of all images in the cache
     """
-    # TODO: Complete function body
-    # NOTE: This function is only needed to support the APOD viewer GUI
-    return
+    # Connect to the database and initialize the cursor 
+    img_db = sqlite3.connect(image_cache_db)
+    db_cursor = img_db.cursor()
+
+    # Execute the query 
+    db_cursor.execute("SELECT apod_title FROM apods")
+    all_titles = db_cursor.fetchall()
+
+    # Close the database and return all of the apod titles 
+    img_db.close()
+    return all_titles 
 
 if __name__ == '__main__':
     main()
