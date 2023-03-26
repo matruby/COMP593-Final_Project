@@ -106,19 +106,24 @@ def init_apod_cache(parent_dir):
     global image_cache_db
     # Check if the image directory exists if not create it
     image_cache_dir = parent_dir + r'\images'
-    print(image_cache_dir)
+
+    print(f'Image cache directory: {image_cache_dir}') # Process Statement #1 
+
     if os.path.isdir(image_cache_dir):
-        print('Image cache directory already exists.')
+        print('Image cache directory already exists.') # Process Statement #2
     else:
-        print('Image cache directory created.')
+        print('Image cache directory created.') # Process Statement #2 
         os.mkdir(image_cache_dir)
 
     # Check if the image cache DB exists if not create it
     image_cache_db = image_cache_dir + r'\image_cache.db'
+
+    print(f'Image cache DB: {image_cache_db}') # Process Statement #3
+
     if os.path.isfile(image_cache_db):
-        print('Image cache DB already exists.')
+        print('Image cache DB already exists.') # Process Statement #4
     else:
-        print('Image cache DB created.')
+        print('Image cache DB created.') # Process Statement #4 
         # Create the database 
         image_db = sqlite3.connect(image_cache_db)
         # Create the proper SQL table structure 
@@ -154,33 +159,83 @@ def add_apod_to_cache(apod_date):
         int: Record ID of the APOD in the image cache DB, if a new APOD is added to the
         cache successfully or if the APOD already exists in the cache. Zero, if unsuccessful.
     """
+    # Print the APOD date selected 
     print("APOD date:", apod_date.isoformat())
+
+    # Let the user know that an attempt is being made to get the apod info
+    print(f'Getting {apod_date} APOD information from NASA...', end='')
+
     # Get the APOD Image Information 
     apod_info = get_api_info(apod_date)
+
+    # Check if the api call was successful
+    if apod_info:
+        print('success')
+    else:
+        print('failed')
+
+    # Tell the user the title of the APOD 
+    print(apod_info['title']) 
+
+    # Get the APOD image url 
     apod_img_url = get_apod_image_url(apod_info)
+
+    # Tell the user the url of the APOD
+    print(f'APOD URL: {apod_img_url}')
+
+    # Tell the user that the image is trying to be downloaded
+    print(f'Downloading image from {apod_img_url}...', end='')
 
     # Get the image downloaded 
     img_data = download_image(apod_img_url)
 
-    # Get the hash of the downloaded image 
+    # Check if the image download was successful
+    if img_data:
+        print('success')
+    else:
+        print('failed')
+
+    # Get the hash of the downloaded image and notify the user of the hash
     img_hash = hashlib.sha256(img_data).hexdigest()
+    print(f'APOD SHA-256: {img_hash}')    
 
     # Query the database to see if the image already exists
     query_result = get_apod_id_from_db(img_hash)
 
     # Check if the query returned anything
     if query_result == 0:
-        # Assign the image file path 
+        print('APOD image is not already in cache.')
+        # Assign the image file path and notify the user of the path 
         apod_file_path = determine_apod_file_path(apod_info['title'], apod_img_url)
+        print(f'APOD file path: {apod_file_path}')
+
+        # Tell the user that the image is trying to be saved 
+        print(f'Saving image file as: {apod_file_path}...', end='')
 
         # Save the image to the image cache
-        save_image_file(img_data, apod_file_path)
+        saved = save_image_file(img_data, apod_file_path)
 
-        # Add the Apod information to the image_cache.db
+        # Check if the image saved
+        if saved:
+            print('success')
+        else:
+            print('failed')
+
+        # Tell the user that the APOD is being added to the db 
+        print('Adding APOD to image cache DB...', end='')
+
+        # Add the APOD information to the image_cache.db
         row_id = add_apod_to_db(apod_info['title'], apod_info['explanation'], apod_file_path, img_hash, apod_date)
-        return row_id
+        
+        # Check if it was added to the db successfully
+        if row_id:
+            print('success')
+            return row_id
+        else: 
+            print('failed')
+            
     else:
-        print('APOD Image already in cache.')
+        print('APOD image already in cache.')
         return query_result
 
 def add_apod_to_db(title, explanation, file_path, sha256, date):
