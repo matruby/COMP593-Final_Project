@@ -21,8 +21,12 @@ def download_image(image_url):
 def save_image_file(image_data, image_path):
     """Saves image data as a file on disk."""
     # Try to write the image to the image path given
-    with open(image_path, 'wb') as img_file:
-        img_file.write(image_data)
+    try:
+        with open(image_path, 'wb') as img_file:
+            img_file.write(image_data)
+        return True
+    except Exception:
+        return False
 
 def set_desktop_background_image(image_path):
     """Sets the desktop background image to a specific image."""

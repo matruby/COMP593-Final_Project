@@ -102,6 +102,8 @@ def init_apod_cache(parent_dir):
     Args:
         parent_dir (str): Full path of parent directory    
     """
+    global image_cache_dir
+    global image_cache_db
     # Check if the image directory exists if not create it
     image_cache_dir = parent_dir + r'\images'
     print(image_cache_dir)
@@ -233,7 +235,6 @@ def get_apod_id_from_db(image_sha256):
     Returns:
         int: Record ID of the APOD in the image cache DB, if it exists. Zero, if it does not.
     """
-    # TODO: Complete function body
     # Connect to the database and initialize the cursor 
     img_db = sqlite3.connect(image_cache_db)
     db_cursor = img_db.cursor()
