@@ -13,7 +13,7 @@ def get_api_info(apod_date):
 
     # Checks if the request was succesful and converts the response to a dictionary
     if resp_msg.status_code == requests.codes.ok:
-        apod_json = dict(resp_msg.json())
+        apod_json = resp_msg.json()
         return apod_json
     else:
         return None
@@ -24,10 +24,11 @@ def get_apod_image_url(apod_info_dict):
     If the APOD is an image, gets the URL of the high definition image.
     If the APOD is a video, gets the URL of the video thumbnail.
     """
-    if apod_info_dict['hdurl']:
+    if 'hdurl' in apod_info_dict:
         img_download_url = apod_info_dict['hdurl']
         return img_download_url
     
     else:
-        thmbnail_download_url = apod_info_dict['thumb']
+        thmbnail_download_url = apod_info_dict['thumbnail_url']
         return thmbnail_download_url
+    

@@ -102,9 +102,6 @@ def init_apod_cache(parent_dir):
     Args:
         parent_dir (str): Full path of parent directory    
     """
-    global image_cache_dir
-    global image_cache_db
-
     # Check if the image directory exists if not create it
     image_cache_dir = parent_dir + r'\images'
     print(image_cache_dir)
