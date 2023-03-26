@@ -2,6 +2,7 @@
 Library of useful functions for working with images.
 '''
 import ctypes 
+import os 
 import requests 
 
 def download_image(image_url):
@@ -31,10 +32,12 @@ def save_image_file(image_data, image_path):
 def set_desktop_background_image(image_path):
     """Sets the desktop background image to a specific image."""
     # Try and set the desktop background
-    ctypes.windll.user32.SystemParametersInfoW(20, 0, image_path, 0)
-    return True 
-
-
+    if os.path.isfile(image_path):
+        ctypes.windll.user32.SystemParametersInfoW(20, 0, image_path, 0)
+        return True
+    else:
+        return False 
+    
 def scale_image(image_size, max_size=(800, 600)):
     """Calculates the dimensions of an image scaled to a maximum width
     and/or height while maintaining the aspect ratio  

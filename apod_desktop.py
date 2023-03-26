@@ -44,7 +44,13 @@ def main():
 
     # Set the APOD as the desktop background image
     if apod_id != 0:
-        set_desktop_background_image(db_response['file_path'])
+        print(f"Setting Desktop to {db_response['file_path']}...", end='')
+        set_correctly = set_desktop_background_image(db_response['file_path'])
+        # Check if the desktop background was set correctly
+        if set_correctly:
+            print('success')
+        else:
+            print('failed')
 
 def get_apod_date():
     # Variables for the current date and the date of the first APOD
@@ -56,28 +62,36 @@ def get_apod_date():
         apod_date = current_date
 
     elif len(sys.argv) == 2:
-        # Checks if the given parameter is in ISO format
-        try: 
-            apod_date = date.fromisoformat(str(sys.argv[1]))
-        except ValueError:
-            print("Date Isn't In ISO Format - YYYY-MM-DD\n! CODE EXITING !")
-            sys.exit()
+        # Checks if the given parameter is a valid date
+        iso_format = re.match(r'\d{4}-\d{2}-\d{2}', sys.argv[1])
+        if iso_format:
+            # Seperate the date values into a list and convert the values to ints 
+            split_args = sys.argv[1].split('-')
+            proper_args = [int(val) for val in split_args]
+            # Try converting the string to a date object 
+            try: 
+                apod_date = date(proper_args[0], proper_args[1], proper_args[2])
+            except ValueError as err_msg:
+                print(f'Error: Invalid Date format; {err_msg}\nScript execution aborted')
+                sys.exit()
 
-        # Checks if the date is not in the future 
-        if apod_date > current_date:
-            print(f"The Date {apod_date} is in the Future; Use a Valid Date\n! CODE EXITING !")
-            sys.exit()
+            # Checks if the date is not in the future 
+            if apod_date > current_date:
+                print(f"Error: APOD date cannot be in the future\nScript execution aborted")
+                sys.exit()
 
-        # Checks if the date is not earlier than the first APOD
-        if apod_date < first_apod:
-            print(f"{apod_date} is before the first APOD; There is no APOD to be found\n! CODE EXITING !")
+            # Checks if the date is not earlier than the first APOD
+            if apod_date < first_apod:
+                print(f"Error: APOD date before first APOD\nScript execution aborted")
+                sys.exit()
+        else:
+            print(f"Error: Invalid date format; Invalid ISOformat string: '{sys.argv[1]}'\nScript execution aborted")
             sys.exit()
-               
+                    
     else:
-        print("Too many Arguments Given\n! CODE EXITING !")
+        print("Error: Too many arguments given\nScript execution aborted")
         sys.exit()
 
-    # If all the tests passed return the date 
     return apod_date
 
 def get_script_dir():
@@ -303,7 +317,7 @@ def get_apod_id_from_db(image_sha256):
     if query_result == None:
         return 0 
     else:
-        return query_result
+        return query_result[0]
 
 def determine_apod_file_path(image_title, image_url):
     """Determines the path at which a newly downloaded APOD image must be 
@@ -337,7 +351,7 @@ def determine_apod_file_path(image_title, image_url):
     formatted_title = "_".join(split_title)
         
     # Image name for image cache 
-    img_cache_name = formatted_title + image_url[-4:]
+    img_cache_name = formatted_title + '.jpg'
     img_abs_path = image_cache_dir + f'\\{img_cache_name}'
 
     # Return the proper absolute path for the new image 
