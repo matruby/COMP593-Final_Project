@@ -7,9 +7,14 @@ def get_api_info(apod_date):
     """Gets information from the NASA API for the Astronomy 
     Picture of the Day (APOD) from a specified date.
     """
+    # Parameters for request to the api 
+    api_vars = {
+        'api_key': '71TWdM7Y6l0U0QhSRBjuWQhfVWdUHKebAAuze8Vp',
+        'date': apod_date,
+        'thumbs': 'True'
+    }
     # Make the initial request to the api
-    apod_api_url = f'https://api.nasa.gov/planetary/apod?api_key=71TWdM7Y6l0U0QhSRBjuWQhfVWdUHKebAAuze8Vp&date={apod_date}&thumbs=True'
-    resp_msg = requests.get(apod_api_url)
+    resp_msg = requests.get('https://api.nasa.gov/planetary/apod', params=api_vars)
 
     # Checks if the request was succesful and converts the response to a dictionary
     if resp_msg.status_code == requests.codes.ok:
